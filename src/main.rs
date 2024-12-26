@@ -27,12 +27,12 @@ fn main() {
     let names = de_maps.keys().cloned().collect::<Vec<_>>();
 
     if let Some(selection) = run_fzf(names) {
-        let de = de_maps.get(&selection).unwrap();
-        // println!("Running {:?}", &de.exec);
-        if let Some(cmd) = de.exec.replace("\"", "").split_whitespace().next() {
-            run_detached_command(cmd);
-        } else {
-            println!("No cmd");
+        match de_maps.get(&selection).and_then(|de| {
+            let cleaned_exec = de.exec.replace("\"", "");
+            cleaned_exec.split_whitespace().next().map(String::from)
+        }) {
+            Some(cmd) => run_detached_command(&cmd),
+            _ => println!("No cmd"),
         }
     } else {
         println!("No Selection");

@@ -27,11 +27,8 @@ fn main() {
     let names = de_maps.keys().cloned().collect::<Vec<_>>();
 
     if let Some(selection) = run_fzf(names) {
-        match de_maps.get(&selection).and_then(|de| {
-            let cleaned_exec = de.exec.replace("\"", "");
-            cleaned_exec.split_whitespace().next().map(String::from)
-        }) {
-            Some(cmd) => run_detached_command(&cmd),
+        match de_maps.get(&selection) {
+            Some(de) => run_detached_command(&de.exec),
             _ => println!("No cmd"),
         }
     } else {
@@ -40,6 +37,7 @@ fn main() {
 }
 
 fn run_detached_command(command: &str) {
+    let command = remove_placeholders(command);
     println!("Running {}", command);
     let child = Command::new("sh")
         .arg("-c")
@@ -49,6 +47,13 @@ fn run_detached_command(command: &str) {
         .spawn();
     sleep(Duration::from_millis(10));
     std::mem::drop(child);
+}
+
+fn remove_placeholders(input: &str) -> String {
+    let placeholders: [&str; 11]= ["%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%i", "%c", "%k"];
+    let pattern = placeholders.join("|");
+    let re = regex::Regex::new(&pattern).unwrap();
+    re.replace_all(input, "").to_string()
 }
 
 fn run_fzf(names: Vec<String>) -> Option<String> {

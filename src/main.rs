@@ -37,7 +37,6 @@ fn main() {
 }
 
 fn run_detached_command(command: &str) {
-    let command = remove_placeholders(command);
     println!("Running {}", command);
     let child = Command::new("sh")
         .arg("-c")
@@ -50,7 +49,7 @@ fn run_detached_command(command: &str) {
 }
 
 fn remove_placeholders(input: &str) -> String {
-    let placeholders: [&str; 11]= ["%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%i", "%c", "%k"];
+    let placeholders: [&str; 11]= [" %f", " %F", " %u", " %U", " %d", " %D", " %n", " %N", " %i", " %c", " %k"];
     let pattern = placeholders.join("|");
     let re = regex::Regex::new(&pattern).unwrap();
     re.replace_all(input, "").to_string()
@@ -86,22 +85,25 @@ fn parse_desktop_file(path: PathBuf) -> Option<DesktopEntry> {
     // println!("Parsing {:?}", path);
     match fs::read_to_string(path) {
         Ok(content) => {
-            let mut result = (None, None);
-            for line in content.split("\n") {
+            let mut name = None;
+            let mut exec = None;
+            for line in content.lines() {
                 if line.starts_with("Name=") {
-                    result.0 = Some(line.trim_start_matches("Name=").to_string());
+                    name = Some(line.trim_start_matches("Name=").to_string());
                 } else if line.starts_with("Exec=") {
-                    result.1 = Some(line.trim_start_matches("Exec=").to_string());
+                    exec = Some(line.trim_start_matches("Exec=").to_string());
                 }
-                if let (Some(_), Some(_)) = result {
+                if name.is_some() && exec.is_some() {
                     break;
                 }
             }
 
-            if let (Some(name), Some(exec)) = &result {
+            if let (Some(mut name), Some(mut exec)) = (name, exec) {
+                exec = remove_placeholders(&exec);
+                name = format!("{} ({})", name, exec).to_string();
                 return Some(DesktopEntry {
-                    name: name.clone(),
-                    exec: exec.clone(),
+                    name,
+                    exec,
                 });
             }
         }

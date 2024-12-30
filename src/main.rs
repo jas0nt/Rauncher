@@ -22,6 +22,10 @@ struct DesktopEntry {
 }
 
 fn main() {
+    run();
+}
+
+fn run() {
     let desktop_files = get_all_desktop_files();
     let de_maps = parse_desktop_files(desktop_files);
     let names = de_maps.keys().cloned().collect::<Vec<_>>();
@@ -48,11 +52,12 @@ fn run_detached_command(command: &str) {
     std::mem::drop(child);
 }
 
-fn remove_placeholders(input: &str) -> String {
-    let placeholders: [&str; 11]= [" %f", " %F", " %u", " %U", " %d", " %D", " %n", " %N", " %i", " %c", " %k"];
-    let pattern = placeholders.join("|");
-    let re = regex::Regex::new(&pattern).unwrap();
-    re.replace_all(input, "").to_string()
+fn remove_placeholders(exec: &str) -> String {
+    let args: Vec<String> = shlex::split(exec).unwrap()
+        .into_iter()
+        .filter(|s| !s.starts_with("%"))
+        .collect();
+    args.join(" ")
 }
 
 fn run_fzf(names: Vec<String>) -> Option<String> {
@@ -127,17 +132,11 @@ fn get_all_desktop_files() -> Vec<PathBuf> {
     // println!("{XDG_DATA_DIRS} array: {:?}", xdg_data_dir_arr);
 
     let data_home = PathBuf::from(&xdg_data_home).join(APP_FOLDER);
-    let mut desktop_files = match find_desktop_files(&data_home) {
-        Ok(files) => files,
-        Err(_) => Vec::new(),
-    };
+    let mut desktop_files = find_desktop_files(&data_home).unwrap_or_else(|_| Vec::new());
 
     for dir in xdg_data_dir_arr {
         let path = PathBuf::from(&dir).join(APP_FOLDER);
-        let files = match find_desktop_files(&path) {
-            Ok(vals) => vals,
-            Err(_) => Vec::new(),
-        };
+        let files = find_desktop_files(&path).unwrap_or_else(|_| Vec::new());
         desktop_files.extend(files);
     }
 

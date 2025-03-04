@@ -2,6 +2,7 @@ use fzf_wrapped::run_with_output;
 use fzf_wrapped::Fzf;
 use fzf_wrapped::{Color, Layout};
 use std::collections::HashMap;
+use shlex;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -53,11 +54,15 @@ fn run_detached_command(command: &str) {
 }
 
 fn remove_placeholders(exec: &str) -> String {
-    let args: Vec<String> = shlex::split(exec).unwrap()
-        .into_iter()
-        .filter(|s| !s.starts_with("%"))
-        .collect();
-    args.join(" ")
+    let args: Vec<String> = match shlex::split(exec) {
+        Some(args) => args,
+        None => {
+            eprintln!("Error parsing command: {:?}", exec);
+            return exec.to_string();
+        }
+    };
+    let filtered_args: Vec<String> = args.into_iter().filter(|s| !s.starts_with("%")).collect();
+    filtered_args.join(" ")
 }
 
 fn run_fzf(names: Vec<String>) -> Option<String> {
@@ -87,7 +92,7 @@ fn parse_desktop_files(files: Vec<PathBuf>) -> HashMap<String, DesktopEntry> {
 }
 
 fn parse_desktop_file(path: PathBuf) -> Option<DesktopEntry> {
-    // println!("Parsing {:?}", path);
+    println!("Parsing {:?}", path);
     match fs::read_to_string(path) {
         Ok(content) => {
             let mut name = None;
@@ -106,10 +111,7 @@ fn parse_desktop_file(path: PathBuf) -> Option<DesktopEntry> {
             if let (Some(mut name), Some(mut exec)) = (name, exec) {
                 exec = remove_placeholders(&exec);
                 name = format!("{} ({})", name, exec).to_string();
-                return Some(DesktopEntry {
-                    name,
-                    exec,
-                });
+                return Some(DesktopEntry { name, exec });
             }
         }
         Err(e) => {
